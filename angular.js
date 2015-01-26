@@ -1,5 +1,5 @@
 /**
- * @license AngularJS v1.4.0-build.3807+sha.b3a9bd3
+ * @license AngularJS v1.4.0-local+sha.52d8835
  * (c) 2010-2015 Google, Inc. http://angularjs.org
  * License: MIT
  */
@@ -57,7 +57,7 @@ function minErr(module, ErrorConstructor) {
       return match;
     });
 
-    message += '\nhttp://errors.angularjs.org/1.4.0-build.3807+sha.b3a9bd3/' +
+    message += '\nhttp://errors.angularjs.org/1.4.0-local+sha.52d8835/' +
       (module ? module + '/' : '') + code;
 
     for (i = SKIP_INDEXES, paramPrefix = '?'; i < templateArgs.length; i++, paramPrefix = '&') {
@@ -91,6 +91,7 @@ function minErr(module, ErrorConstructor) {
   nodeName_: true,
   isArrayLike: true,
   forEach: true,
+  sortedKeys: true,
   forEachSorted: true,
   reverseParams: true,
   nextUid: true,
@@ -331,7 +332,7 @@ function forEach(obj, iterator, context) {
         obj.forEach(iterator, context, obj);
     } else {
       for (key in obj) {
-        if (hasOwnProperty.call(obj, key)) {
+        if (obj.hasOwnProperty(key)) {
           iterator.call(context, obj[key], key, obj);
         }
       }
@@ -340,8 +341,12 @@ function forEach(obj, iterator, context) {
   return obj;
 }
 
+function sortedKeys(obj) {
+  return Object.keys(obj).sort();
+}
+
 function forEachSorted(obj, iterator, context) {
-  var keys = Object.keys(obj).sort();
+  var keys = sortedKeys(obj);
   for (var i = 0; i < keys.length; i++) {
     iterator.call(context, obj[keys[i]], keys[i]);
   }
@@ -2118,7 +2123,7 @@ function toDebugString(obj) {
  * - `codeName` – `{string}` – Code name of the release, such as "jiggling-armfat".
  */
 var version = {
-  full: '1.4.0-build.3807+sha.b3a9bd3',    // all of these placeholder strings will be replaced by grunt's
+  full: '1.4.0-local+sha.52d8835',    // all of these placeholder strings will be replaced by grunt's
   major: 1,    // package task
   minor: 4,
   dot: 0,
@@ -9300,6 +9305,13 @@ function $HttpProvider() {
 </example>
      */
     function $http(requestConfig) {
+      var config = {
+        method: 'get',
+        transformRequest: defaults.transformRequest,
+        transformResponse: defaults.transformResponse,
+        progress: null
+      };
+      var headers = mergeHeaders(requestConfig);
 
       if (!angular.isObject(requestConfig)) {
         throw minErr('$http')('badreq', 'Http request configuration must be an object.  Received: {0}', requestConfig);
@@ -9617,7 +9629,7 @@ function $HttpProvider() {
         }
 
         $httpBackend(config.method, url, reqData, done, reqHeaders, config.timeout,
-            config.withCredentials, config.responseType);
+            config.withCredentials, config.responseType, config.progress);
       }
 
       return promise;
@@ -9734,7 +9746,7 @@ function $HttpBackendProvider() {
 
 function createHttpBackend($browser, createXhr, $browserDefer, callbacks, rawDocument) {
   // TODO(vojta): fix the signature
-  return function(method, url, post, callback, headers, timeout, withCredentials, responseType) {
+  return function(method, url, post, callback, headers, timeout, withCredentials, responseType, progressCallback) {
     $browser.$$incOutstandingRequestCount();
     url = url || $browser.url();
 
@@ -9812,6 +9824,13 @@ function createHttpBackend($browser, createXhr, $browserDefer, callbacks, rawDoc
           if (responseType !== 'json') {
             throw e;
           }
+        }
+      }
+
+      if (typeof progressCallback === "function") {
+        xhr.onprogress = progressCallback;
+        if ("upload" in xhr) {
+          xhr.upload.onprogress = progressCallback;
         }
       }
 
@@ -16035,7 +16054,6 @@ function $TemplateRequestProvider() {
           handleRequestFn.totalPendingRequests--;
         })
         .then(function(response) {
-          $templateCache.put(tpl, response.data);
           return response.data;
         }, handleError);
 
@@ -18197,8 +18215,8 @@ function FormController(element, attrs, $scope, $animate, $interpolate) {
   var parentForm = form.$$parentForm = element.parent().controller('form') || nullFormCtrl;
 
   // init state
-  form.$error = createMap();
-  form.$$success = createMap();
+  form.$error = {};
+  form.$$success = {};
   form.$pending = undefined;
   form.$name = $interpolate(attrs.name || attrs.ngForm || '')($scope);
   form.$dirty = false;
@@ -22282,7 +22300,7 @@ var ngIncludeFillContentDirective = ['$compile',
  * **Note**: If you have assignment in `ngInit` along with {@link ng.$filter `$filter`}, make
  * sure you have parenthesis for correct precedence:
  * <pre class="prettyprint">
- * `<div ng-init="test1 = (data | orderBy:'name')"></div>`
+ *   <div ng-init="test1 = (data | orderBy:'name')"></div>
  * </pre>
  * </div>
  *
@@ -22689,8 +22707,8 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
   this.$dirty = false;
   this.$valid = true;
   this.$invalid = false;
-  this.$error = createMap(); // keep invalid keys here
-  this.$$success = createMap(); // keep valid keys here
+  this.$error = {}; // keep invalid keys here
+  this.$$success = {}; // keep valid keys here
   this.$pending = undefined; // keep pending keys here
   this.$name = $interpolate($attr.name || '', false)($scope);
 
